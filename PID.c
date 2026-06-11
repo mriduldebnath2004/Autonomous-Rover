@@ -1,0 +1,39 @@
+#include "pico/stdlib.h"
+#include "PID.h"
+
+
+
+float PID_update(PID *pid, float target, float measured, float dt) {
+
+
+    float error = target - measured;
+    float alpha = 0.2;
+
+    float measured_filtered = alpha * measured + (1.0f - alpha) * (*pid).last_measured;
+
+    (*pid).integral += error * dt;
+    
+
+    float derivative = - (measured_filtered - (*pid).last_measured) / dt;
+
+
+    float output = (*pid).kp * error + 
+                   (*pid).ki * (*pid).integral + 
+                   (*pid).kd * derivative;
+
+    if (output > 255.0f)
+    {output = 255.0f;} // Maximum set PWM value 
+
+    if (output < 0.0f) output = 0.0f;
+
+
+    (*pid).last_error = error;
+    (*pid).last_measured = measured_filtered;
+
+    
+
+    return output;
+
+}
+
+

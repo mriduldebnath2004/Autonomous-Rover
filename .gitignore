@@ -1,0 +1,21 @@
+# Build outputs
+build/
+
+# Pico binaries
+*.uf2
+*.elf
+*.bin
+*.hex
+*.map
+
+# VS Code
+.vscode/
+
+# Temporary files
+*.o
+*.obj
+*.log
+
+# Windows
+Thumbs.db
+Desktop.ini
