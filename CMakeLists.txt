@@ -39,6 +39,7 @@ add_executable(Rover_Pico_Code
     Rover_Pico_Code.c
     ENCODER.c
     MOTOR.c
+    IMU.c
      )
 
 pico_set_program_name(Rover_Pico_Code "Rover_Pico_Code")
@@ -51,7 +52,8 @@ pico_enable_stdio_usb(Rover_Pico_Code 1)
 # Add the standard library to the build
 target_link_libraries(Rover_Pico_Code
         pico_stdlib
-        hardware_pwm)
+        hardware_pwm
+        hardware_i2c)
 
 # Add the standard include files to the build
 target_include_directories(Rover_Pico_Code PRIVATE

@@ -3,31 +3,38 @@
 #include "PINS.h"
 #include "ENCODER.h"
 #include "MOTOR.h"
+#include "IMU.h"
 
 #define MIN_PWM 82
 #define count_to_m 0.0000620149f
 
+#define AX_OFFSET  0.045f
+#define AY_OFFSET -0.020f
+#define AZ_OFFSET -0.050f   // because AZ is 0.95, should be 1.00
+#define GZ_OFFSET -0.78f
 
 int main() {
     stdio_init_all();
 
-    motor_init();
-    encoder_init();
+    int imu_ok = imu_init();
+
+    float imu[6];
 
     while (true) {
-        sleep_ms(5000);
-        
-        motor_set_left(true,85);
-        motor_set_right(true,85);
-        for (int i = 0; i < 50; i++) {
-            printf(
-                "Encoder left side count: %.1f  Encoder right side count: %.1f\n",
-                (encoder_get_count(0) + encoder_get_count(2)) * 0.5f,
-                (encoder_get_count(1) + encoder_get_count(3)) * 0.5f
-            );
-            sleep_ms(100);
+
+
+    
+        if (imu_ok) {
+            read_imu(imu);
+            imu[0] -= AX_OFFSET;
+            imu[1] -= AY_OFFSET;
+            imu[2] -= AZ_OFFSET;
+            imu[5] -= GZ_OFFSET;
+            printf("AX: %.2f AY: %.2f AZ: %.2f GZ: %.2f\n",
+       imu[0], imu[1], imu[2], imu[5]);
         }
-        motor_stop_all();
-        encoder_reset_counts();
+        else {printf("IMU initiation failed");}
+
+        sleep_ms(500);
     }
 }

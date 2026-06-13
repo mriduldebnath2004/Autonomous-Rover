@@ -15,4 +15,7 @@
 #define ENC4A 8
 #define ENC4B 9
 
+#define IMU_SDA 14
+#define IMU_SCL 15
+
 #endif
