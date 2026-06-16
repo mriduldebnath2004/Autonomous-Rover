@@ -40,6 +40,7 @@ add_executable(Rover_Pico_Code
     ENCODER.c
     MOTOR.c
     IMU.c
+    PID.c
      )
 
 pico_set_program_name(Rover_Pico_Code "Rover_Pico_Code")

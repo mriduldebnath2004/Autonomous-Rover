@@ -21,16 +21,10 @@ float PID_update(PID *pid, float target, float measured, float dt) {
                    (*pid).ki * (*pid).integral + 
                    (*pid).kd * derivative;
 
-    if (output > 255.0f)
-    {output = 255.0f;} // Maximum set PWM value 
-
-    if (output < 0.0f) output = 0.0f;
 
 
     (*pid).last_error = error;
     (*pid).last_measured = measured_filtered;
-
-    
 
     return output;
 

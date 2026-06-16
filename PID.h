@@ -10,8 +10,10 @@ typedef struct {
     float integral;
     float last_error;
     float last_measured;
+
+    float last_output;
 } PID;
 
-float PID_motor(PID *pid, float target, float measured, float dt);
+float PID_update(PID *pid, float target, float measured, float dt);
 
 #endif
