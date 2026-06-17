@@ -12,7 +12,11 @@ float PID_update(PID *pid, float target, float measured, float dt) {
     float measured_filtered = alpha * measured + (1.0f - alpha) * (*pid).last_measured;
 
     (*pid).integral += error * dt;
-    
+    if ((*pid).integral > (*pid).integral_limit)
+        (*pid).integral = (*pid).integral_limit;
+
+    if ((*pid).integral < -(*pid).integral_limit)
+        (*pid).integral = -(*pid).integral_limit;
 
     float derivative = - (measured_filtered - (*pid).last_measured) / dt;
 
