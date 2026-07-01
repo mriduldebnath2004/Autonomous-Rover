@@ -12,6 +12,7 @@
 #define MAX_YAW_RATE 1.2f      // actual max is around 1.6, to be safe 1.2
 
 #define YAW_GYRO_IDX 5         // index into IMU_readings for Z-axis yaw rate (deg/s)
+#define YAW_CMD_DEADBAND 0.02f
 
 static absolute_time_t yaw_last_time;
 static absolute_time_t yaw_next_time;
@@ -41,6 +42,7 @@ void yawrate_set_target(float target_rad_s)
 
     if (target_yaw >  MAX_YAW_RATE) target_yaw =  MAX_YAW_RATE;
     if (target_yaw < -MAX_YAW_RATE) target_yaw = -MAX_YAW_RATE;
+
 
     // Reset PID state on direction change
     if ((old_yaw > 0.0f && target_yaw < 0.0f) ||
@@ -72,7 +74,7 @@ void yawrate_update(float forward_mps)
     if (cmd_yaw >  MAX_YAW_RATE) cmd_yaw =  MAX_YAW_RATE;
     if (cmd_yaw < -MAX_YAW_RATE) cmd_yaw = -MAX_YAW_RATE;
     
-
+    if (fabsf(cmd_yaw) < YAW_CMD_DEADBAND) cmd_yaw = 0.0f;
 
     float turn_speed = 0.5f * B_EFF * cmd_yaw;
 

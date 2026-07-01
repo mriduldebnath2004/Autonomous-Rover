@@ -5,10 +5,13 @@
 #include "PID.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
+#include <math.h>
 
 #define MIN_PWM 85
 #define COUNT_TO_M 0.0000620149f
 #define MIN_TARGET_SPEED 0.15f
+#define TARGET_DEADBAND 0.02f
+
 
 #define CONTROL_PERIOD_MS 20
 
@@ -57,6 +60,12 @@ void velocity_set_target(float left_mps, float right_mps)
     target_speed_left = left_mps;
     target_speed_right = right_mps;
 
+    if (fabsf(target_speed_left) < TARGET_DEADBAND) {
+        target_speed_left = 0.0f;
+    }
+    if (fabsf(target_speed_right) < TARGET_DEADBAND) {
+        target_speed_right = 0.0f;
+    }
 
 // Experimentally found that these motors can only move properly and consistently past 0.15m/s, so clamping it to that 
     if (target_speed_left > 0.0f && target_speed_left < MIN_TARGET_SPEED) {
