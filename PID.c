@@ -7,9 +7,9 @@ float PID_update(PID *pid, float target, float measured, float dt) {
 
 
     float error = target - measured;
-    float alpha = 0.2;
+    float alpha_lowpass = (*pid).alpha;
 
-    float measured_filtered = alpha * measured + (1.0f - alpha) * (*pid).last_measured;
+    float measured_filtered = alpha_lowpass * measured + (1.0f - alpha_lowpass) * (*pid).last_measured;
 
     (*pid).integral += error * dt;
     if ((*pid).integral > (*pid).integral_limit)

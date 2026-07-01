@@ -18,4 +18,8 @@
 #define IMU_SDA 14
 #define IMU_SCL 15
 
+#define UART_TX 0
+#define UART_RX 1
+
+
 #endif

@@ -13,6 +13,7 @@ typedef struct {
 
     float last_output;
     float integral_limit;
+    float alpha;
 } PID;
 
 float PID_update(PID *pid, float target, float measured, float dt);

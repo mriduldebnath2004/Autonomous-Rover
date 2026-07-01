@@ -1,6 +1,6 @@
 #include "MOTOR.h"
 #include "hardware/pwm.h"
-#include "pins.h"
+#include "PINS.h"
 #include "pico/stdlib.h"
 
 static void setup_pwm(uint pin) {

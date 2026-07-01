@@ -1,5 +1,5 @@
 #include "ENCODER.h"
-#include "pins.h"
+#include "PINS.h"
 #include "pico/stdlib.h"
 #include "hardware/sync.h"
 

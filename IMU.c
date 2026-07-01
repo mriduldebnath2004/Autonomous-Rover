@@ -1,8 +1,18 @@
 #include "IMU.h"
-#include "pins.h"
+#include "PINS.h"
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 #include <stdint.h>
+
+// IMU Tuning
+#define AX_OFFSET  0.045f
+#define AY_OFFSET -0.020f
+#define AZ_OFFSET -0.050f   
+
+#define GX_OFFSET 0.0f
+#define GY_OFFSET 0.0f
+#define GZ_OFFSET -0.78f
+
 
 
 static void imu_write_reg(uint8_t reg, uint8_t value) //write to imu fcn
@@ -14,8 +24,8 @@ static void imu_write_reg(uint8_t reg, uint8_t value) //write to imu fcn
 
 static void read_reg(uint8_t reg, uint8_t *data, uint8_t len) // read register fcn
 { 
-    int ret1 = i2c_write_blocking(i2c1, 0x68, &reg, 1, true);
-    int ret2 = i2c_read_blocking(i2c1, 0x68, data, len, false);
+    i2c_write_blocking(i2c1, 0x68, &reg, 1, true);
+    i2c_read_blocking(i2c1, 0x68, data, len, false);
 }
 
 
@@ -56,8 +66,18 @@ void read_imu(float *readings) {
                                  imu_readings[i * 2 + 1]);
 
         if (i < 3) {
-            readings[i] = raw / 16384.0f;} //raw accel to g
-        else {readings[i] = raw / 131.0f;} // raw gyro to deg/s
+            readings[i] = raw / 16384.0f; // accel in g
+        } else {
+            readings[i] = (raw / 131.0f);   // gyro in rad/s
+        }
     }
+
+    readings[0] -= AX_OFFSET;
+    readings[1] -= AY_OFFSET;
+    readings[2] -= AZ_OFFSET;
+
+    readings[3] -= GX_OFFSET;
+    readings[4] -= GY_OFFSET;
+    readings[5] -= GZ_OFFSET;
 }
 
