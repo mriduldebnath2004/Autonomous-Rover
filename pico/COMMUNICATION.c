@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define BAUD_RATE 115200
 
@@ -24,6 +25,7 @@ static int rx_index = 0;
 
 static float forward_mps = 0.0f;
 static float yaw_rate_radps = 0.0f;
+static bool ever_received = false;
 
 void communication_init(void)
 {
@@ -62,6 +64,7 @@ void communication_receive(void)
                 forward_mps = v;
                 yaw_rate_radps = w;
                 last_rx_time = get_absolute_time();
+                ever_received = true;
             }
 
             rx_index = 0;
@@ -125,4 +128,10 @@ float communication_get_forward_mps(void)
 float communication_get_yaw_rate_radps(void)
 {
     return yaw_rate_radps;
+}
+
+bool communication_is_connected(void)
+{
+    return ever_received &&
+           (absolute_time_diff_us(last_rx_time, get_absolute_time()) < COMM_TIMEOUT_MS * 1000);
 }
