@@ -40,7 +40,7 @@ public:
                 "/imu/data_raw", 10); 
 
 
-        declare_parameter<std::string>("serial_port", "/dev/serial0");
+        declare_parameter<std::string>("serial_port", "/dev/ttyS0");
         declare_parameter<int>("baud_rate", 115200);
 
         const std::string port =
@@ -87,9 +87,6 @@ public:
     {
         // Stop the rover when this node shuts down.
         if (serial_fd_ >= 0) {
-            const std::string stop_command = "V 0.000 0.000\n";
-            write(serial_fd_, stop_command.c_str(), stop_command.size());
-
             close(serial_fd_);
         }
     }
