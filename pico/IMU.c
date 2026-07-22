@@ -68,7 +68,7 @@ void read_imu(float *readings) {
         if (i < 3) {
             readings[i] = raw / 16384.0f; // accel in g
         } else {
-            readings[i] = (raw / 131.0f);   // gyro in rad/s
+            readings[i] = (raw / 131.0f);   // gyro in deg/s
         }
     }
 
