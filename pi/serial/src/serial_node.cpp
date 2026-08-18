@@ -241,14 +241,23 @@ private:
             encoder_3
         );
 
+        /*
+        * Pico transmits gyroscope measurements in degrees per second.
+        * sensor_msgs/Imu requires radians per second.
+        */
+        constexpr double DEG_TO_RAD =
+            0.017453292519943295;
+
         process_and_publish_imu(
             ax_g,
             ay_g,
             az_g,
-            gx_rad_s,
-            gy_rad_s,
-            gz_rad_s
+            gx_rad_s * DEG_TO_RAD,
+            gy_rad_s * DEG_TO_RAD,
+            gz_rad_s * DEG_TO_RAD
         );
+
+
     }
 
     void publish_wheel_ticks(

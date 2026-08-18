@@ -6,34 +6,39 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+
     config_file = os.path.join(
         get_package_share_directory("rover_localization"),
         "config",
         "ekf.yaml",
     )
 
-    return LaunchDescription([
-        Node(
-            package="robot_localization",
-            executable="ekf_node",
-            name="ekf_filter_node",
-            output="screen",
-            parameters=[config_file],
-        ),
+    imu_static_transform = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="base_link_to_imu_link",
+        arguments=[
+            "--x", "0.00301",
+            "--y", "0.0",
+            "--z", "0.1053",
+            "--roll", "0.0",
+            "--pitch", "0.0",
+            "--yaw", "0.0",
+            "--frame-id", "base_link",
+            "--child-frame-id", "imu_link",
+        ],
+        output="screen",
+    )
 
-        Node(
-            package="tf2_ros",
-            executable="static_transform_publisher",
-            name="imu_static_transform",
-            arguments=[
-                "--x", "0.003",
-                "--y", "0.0",
-                "--z", "0.1053",
-                "--roll", "0.0",
-                "--pitch", "0.0",
-                "--yaw", "0.0",
-                "--frame-id", "base_link",
-                "--child-frame-id", "imu_link",
-            ],
-        ),
+    ekf_node = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="ekf_filter_node",
+        output="screen",
+        parameters=[config_file],
+    )
+
+    return LaunchDescription([
+        imu_static_transform,
+        ekf_node,
     ])
