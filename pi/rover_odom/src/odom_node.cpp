@@ -10,6 +10,13 @@
 constexpr double COUNT_TO_METERS = 0.0000620149;
 constexpr double EFFECTIVE_TRACK_WIDTH = 0.73;
 
+/*
+ * Wheel-odometry vx variance in (m/s)^2.
+ * A variance of 0.01 corresponds to a standard deviation of 0.10 m/s.
+ * Tune this using repeated measured-vx data.
+ */
+constexpr double VX_VARIANCE = 0.01;
+
 class OdomNode : public rclcpp::Node
 {
 public:
@@ -144,8 +151,6 @@ private:
 
         /*
          * Use the rover's average heading during the timestep.
-         * This is more accurate than using only the heading at the
-         * beginning of the timestep.
          */
         const double midpoint_heading =
             theta_ + 0.5 * dtheta;
@@ -179,7 +184,6 @@ private:
         odom_message.pose.pose.orientation.y = 0.0;
         odom_message.pose.pose.orientation.z =
             std::sin(theta_ / 2.0);
-
         odom_message.pose.pose.orientation.w =
             std::cos(theta_ / 2.0);
 
@@ -190,6 +194,13 @@ private:
         odom_message.twist.twist.angular.x = 0.0;
         odom_message.twist.twist.angular.y = 0.0;
         odom_message.twist.twist.angular.z = omega;
+
+        /*
+         * robot_localization only fuses vx from this message.
+         * Index 0 represents vx in the 6x6 twist covariance matrix.
+         */
+        odom_message.twist.covariance.fill(0.0);
+        odom_message.twist.covariance[0] = VX_VARIANCE;
 
         odom_publisher_->publish(odom_message);
 
