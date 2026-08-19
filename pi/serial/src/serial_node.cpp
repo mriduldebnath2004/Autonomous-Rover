@@ -30,7 +30,7 @@ public:
     {
         declare_parameter<std::string>(
             "serial_port",
-            "/dev/ttyS0"
+            "/dev/ttyAMA0"
         );
 
         declare_parameter<int>(
@@ -364,7 +364,7 @@ private:
         message.angular_velocity_covariance = {
             1e-2, 0.0,    0.0,
             0.0,    1e-2, 0.0,
-            0.0,    0.0,  1e-2
+            0.0,    0.0,  1e-6
         };
 
         /*

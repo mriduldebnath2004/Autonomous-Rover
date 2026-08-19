@@ -29,7 +29,7 @@ constexpr double MAX_VALID_DT = 0.25;
  * Wheel-odometry vx variance in (m/s)^2.
  * A variance of 0.01 corresponds to a standard deviation of 0.10 m/s.
  */
-constexpr double VX_VARIANCE = 0.01;
+constexpr double VX_VARIANCE = 2.0e-4;
 
 
 class OdomNode : public rclcpp::Node
