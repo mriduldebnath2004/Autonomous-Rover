@@ -1,6 +1,5 @@
-#include <chrono>
+#include <algorithm>
 #include <cmath>
-#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -61,6 +60,21 @@ public:
             20
         );
 
+        declare_parameter<double>(
+            "continuous_calibration_alpha",
+            0.035
+        );
+
+        declare_parameter<double>(
+            "stationary_yaw_rate_threshold",
+            0.001
+        );
+
+        declare_parameter<double>(
+            "stationary_yaw_stddev_threshold",
+            0.001
+        );
+
         calibration_sample_target_ =
             static_cast<std::size_t>(
                 get_parameter(
@@ -80,6 +94,21 @@ public:
                 ).as_int()
             );
 
+        continuous_calibration_alpha_ =
+            get_parameter(
+                "continuous_calibration_alpha"
+            ).as_double();
+
+        stationary_yaw_rate_threshold_ =
+            get_parameter(
+                "stationary_yaw_rate_threshold"
+            ).as_double();
+
+        stationary_yaw_stddev_threshold_ =
+            get_parameter(
+                "stationary_yaw_stddev_threshold"
+            ).as_double();
+
         if (calibration_sample_target_ == 0) {
             throw std::runtime_error(
                 "imu_calibration_samples must be greater than zero"
@@ -89,6 +118,26 @@ public:
         if (variation_window_size_ == 0) {
             throw std::runtime_error(
                 "gyro_variation_window_samples must be greater than zero"
+            );
+        }
+
+        if (
+            continuous_calibration_alpha_ <= 0.0 ||
+            continuous_calibration_alpha_ > 1.0
+        )
+        {
+            throw std::runtime_error(
+                "continuous_calibration_alpha must be in (0, 1]"
+            );
+        }
+
+        if (
+            stationary_yaw_rate_threshold_ < 0.0 ||
+            stationary_yaw_stddev_threshold_ < 0.0
+        )
+        {
+            throw std::runtime_error(
+                "Stationary IMU thresholds must be non-negative"
             );
         }
 
@@ -308,6 +357,12 @@ private:
             return;
         }
 
+        update_continuous_gyro_bias(
+            gx_rad_s,
+            gy_rad_s,
+            gz_rad_s
+        );
+
         constexpr double GRAVITY =
             9.80665;
 
@@ -364,7 +419,7 @@ private:
         message.angular_velocity_covariance = {
             1e-2, 0.0,    0.0,
             0.0,    1e-2, 0.0,
-            0.0,    0.0,  1e-6
+            0.0,    0.0,  5e-7
         };
 
         /*
@@ -376,6 +431,85 @@ private:
 
         imu_publisher_->publish(
             message
+        );
+    }
+
+    void update_continuous_gyro_bias(
+        double gx_rad_s,
+        double gy_rad_s,
+        double gz_rad_s)
+    {
+        /*
+         * Keep the same rolling window used by startup calibration
+         * updated during normal operation.
+         */
+        push_to_window(
+            gx_window_, gx_window_sum_, gx_window_sum_sq_, gx_rad_s
+        );
+        push_to_window(
+            gy_window_, gy_window_sum_, gy_window_sum_sq_, gy_rad_s
+        );
+        push_to_window(
+            gz_window_, gz_window_sum_, gz_window_sum_sq_, gz_rad_s
+        );
+
+        if (gz_window_.size() < variation_window_size_) {
+            return;
+        }
+
+        constexpr double COMMAND_ZERO_EPSILON = 1e-6;
+
+        const bool zero_command =
+            std::abs(last_commanded_velocity_) <= COMMAND_ZERO_EPSILON &&
+            std::abs(last_commanded_yaw_rate_) <= COMMAND_ZERO_EPSILON;
+
+        const double corrected_yaw_rate =
+            gz_rad_s - gyro_bias_z_;
+
+        const double yaw_stddev =
+            window_stddev(
+                gz_window_,
+                gz_window_sum_,
+                gz_window_sum_sq_
+            );
+
+        const bool stationary =
+            zero_command &&
+            std::abs(corrected_yaw_rate) <
+                stationary_yaw_rate_threshold_ &&
+            yaw_stddev < stationary_yaw_stddev_threshold_;
+
+        if (!stationary) {
+            return;
+        }
+
+        /*
+         * Filter the rolling-window means instead of individual raw
+         * samples. alpha=0.02 converges noticeably within a few
+         * seconds at the current telemetry rate without chasing noise.
+         */
+        const double sample_count =
+            static_cast<double>(gz_window_.size());
+
+        const double mean_gx = gx_window_sum_ / sample_count;
+        const double mean_gy = gy_window_sum_ / sample_count;
+        const double mean_gz = gz_window_sum_ / sample_count;
+
+        gyro_bias_x_ += continuous_calibration_alpha_ *
+            (mean_gx - gyro_bias_x_);
+        gyro_bias_y_ += continuous_calibration_alpha_ *
+            (mean_gy - gyro_bias_y_);
+        gyro_bias_z_ += continuous_calibration_alpha_ *
+            (mean_gz - gyro_bias_z_);
+
+        RCLCPP_DEBUG_THROTTLE(
+            get_logger(),
+            *get_clock(),
+            2000,
+            "Continuous gyro calibration: z_bias=%.6f rad/s, "
+            "yaw_stddev=%.6f rad/s",
+            gyro_bias_z_,
+            yaw_stddev
         );
     }
 
@@ -746,6 +880,9 @@ private:
          * measured.
          */
         if (!imu_calibrated_) {
+            last_commanded_velocity_ = 0.0;
+            last_commanded_yaw_rate_ = 0.0;
+
             send_velocity_command(
                 0.0,
                 0.0
@@ -760,6 +897,9 @@ private:
 
             return;
         }
+
+        last_commanded_velocity_ = message->linear.x;
+        last_commanded_yaw_rate_ = message->angular.z;
 
         send_velocity_command(
             message->linear.x,
@@ -1002,6 +1142,15 @@ private:
     double gyro_bias_x_ = 0.0;
     double gyro_bias_y_ = 0.0;
     double gyro_bias_z_ = 0.0;
+
+    /* Last velocity command sent to the Pico. */
+    double last_commanded_velocity_ = 0.0;
+    double last_commanded_yaw_rate_ = 0.0;
+
+    /* Continuous stationary gyro-bias calibration settings. */
+    double continuous_calibration_alpha_ = 0.02;
+    double stationary_yaw_rate_threshold_ = 0.001;
+    double stationary_yaw_stddev_threshold_ = 0.001;
 
     // Rolling windows and running sums used for the variation check.
     std::deque<double> gx_window_;

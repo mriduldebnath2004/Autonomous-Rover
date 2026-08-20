@@ -29,7 +29,16 @@ constexpr double MAX_VALID_DT = 0.25;
  * Wheel-odometry vx variance in (m/s)^2.
  * A variance of 0.01 corresponds to a standard deviation of 0.10 m/s.
  */
-constexpr double VX_VARIANCE = 2.0e-4;
+constexpr double VX_VARIANCE = 2.25e-4;
+
+/*
+ * The rover is nonholonomic, so its body-frame lateral velocity is
+ * normally zero. Keep this covariance larger than the vx covariance
+ * because a skid-steer rover can still experience lateral tire slip.
+ *
+ * A variance of 0.01 corresponds to a standard deviation of 0.10 m/s.
+ */
+constexpr double VY_VARIANCE = 1e-2;
 
 
 class OdomNode : public rclcpp::Node
@@ -352,13 +361,20 @@ private:
             omega;
 
         /*
-         * Robot Localization currently fuses vx from this message.
-         * Index 0 is vx in the 6x6 twist covariance matrix.
+         * Robot Localization fuses body-frame vx and the nonholonomic
+         * vy=0 constraint from this message.
+         *
+         * Twist covariance ordering is:
+         * [vx, vy, vz, wx, wy, wz]. Therefore, diagonal index 0 is
+         * vx variance and diagonal index 7 is vy variance.
          */
         odom_message.twist.covariance.fill(0.0);
 
         odom_message.twist.covariance[0] =
             VX_VARIANCE;
+
+        odom_message.twist.covariance[7] =
+            VY_VARIANCE;
 
         odom_publisher_->publish(
             odom_message);

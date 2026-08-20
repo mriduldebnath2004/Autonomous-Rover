@@ -36,6 +36,37 @@ def safe_sigma(variance):
     return math.sqrt(variance)
 
 
+def covariance_fieldnames(prefix):
+    return [
+        f"{prefix}_{row}{column}"
+        for row in range(6)
+        for column in range(6)
+    ]
+
+
+def covariance_values(values, prefix):
+    return [
+        values[f"{prefix}_{row}{column}"]
+        for row in range(6)
+        for column in range(6)
+    ]
+
+
+def format_covariance(covariance):
+    rows = []
+
+    for row in range(6):
+        start = row * 6
+        rows.append(
+            "[" + "  ".join(
+                f"{value:+.3e}"
+                for value in covariance[start:start + 6]
+            ) + "]"
+        )
+
+    return "\n".join(rows)
+
+
 class TopicSample:
 
     def __init__(self, history_length=100):
@@ -291,6 +322,13 @@ class EkfMonitor(Node):
             "ekf_wz_variance": math.nan,
         }
 
+        # Preserve every element, including off-diagonal correlations.
+        for fieldname in covariance_fieldnames("ekf_pose_cov"):
+            values[fieldname] = math.nan
+
+        for fieldname in covariance_fieldnames("ekf_twist_cov"):
+            values[fieldname] = math.nan
+
         if self.command.message is not None:
             values["command_vx"] = (
                 self.command.message.linear.x
@@ -358,6 +396,22 @@ class EkfMonitor(Node):
                 twist.covariance[35]
             )
 
+            for index, covariance in enumerate(
+                pose.covariance
+            ):
+                row, column = divmod(index, 6)
+                values[
+                    f"ekf_pose_cov_{row}{column}"
+                ] = covariance
+
+            for index, covariance in enumerate(
+                twist.covariance
+            ):
+                row, column = divmod(index, 6)
+                values[
+                    f"ekf_twist_cov_{row}{column}"
+                ] = covariance
+
         return values
 
     def open_csv(self):
@@ -395,6 +449,14 @@ class EkfMonitor(Node):
             "ekf_vx_variance",
             "ekf_wz_variance",
         ]
+
+        fieldnames.extend(
+            covariance_fieldnames("ekf_pose_cov")
+        )
+
+        fieldnames.extend(
+            covariance_fieldnames("ekf_twist_cov")
+        )
 
         self.csv_writer = csv.DictWriter(
             self.csv_file,
@@ -460,6 +522,24 @@ class EkfMonitor(Node):
             )
         )
 
+        pose_covariance = covariance_values(
+            values,
+            "ekf_pose_cov",
+        )
+
+        twist_covariance = covariance_values(
+            values,
+            "ekf_twist_cov",
+        )
+
+        pose_covariance_text = format_covariance(
+            pose_covariance
+        )
+
+        twist_covariance_text = format_covariance(
+            twist_covariance
+        )
+
         screen = f"""
 ROVER EKF MONITOR
 =================
@@ -493,6 +573,12 @@ yaw sigma:                   {yaw_sigma_degrees:.4f} deg
 Vx sigma:                    {safe_sigma(values["ekf_vx_variance"]):.6f} m/s
 Wz sigma:                    {safe_sigma(values["ekf_wz_variance"]):.6f} rad/s
 
+EKF pose covariance P_pose [x, y, z, roll, pitch, yaw]
+{pose_covariance_text}
+
+EKF twist covariance P_twist [Vx, Vy, Vz, Wx, Wy, Wz]
+{twist_covariance_text}
+
 Stationary IMU statistics
 samples:                     {len(self.stationary_imu_wz)}
 Wz mean/bias:                {stationary_mean:+.7f} rad/s
@@ -509,6 +595,8 @@ Diagnostics: {self.diagnostic_summary()}
 
 Note: command differences are tracking metrics, not ground-truth error.
 True innovation, NIS and Kalman gain are not published by robot_localization.
+The Odometry message publishes separate pose and twist 6x6 covariance
+matrices, not the complete internal 15x15 EKF covariance.
 """
 
         print(
@@ -546,4 +634,3 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
-
