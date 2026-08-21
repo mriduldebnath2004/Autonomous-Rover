@@ -419,7 +419,7 @@ private:
         message.angular_velocity_covariance = {
             1e-2, 0.0,    0.0,
             0.0,    1e-2, 0.0,
-            0.0,    0.0,  5e-7
+            0.0,    0.0,  5e-10
         };
 
         /*
