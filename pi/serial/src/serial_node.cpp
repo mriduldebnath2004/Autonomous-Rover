@@ -75,6 +75,30 @@ public:
             0.001
         );
 
+        /*
+         * Below this commanded angular velocity, in-place rotation
+         * gets jerky/stuttery - likely motor deadband/stiction at low
+         * PWM duty cycle. When the rover is asked to rotate near-in-place
+         * with |omega| under this floor, we bump it up to the floor
+         * (preserving sign) so the motors get enough duty cycle to
+         * actually turn smoothly instead of stick-slipping.
+         */
+        declare_parameter<double>(
+            "min_inplace_angular_velocity",
+            0.24
+        );
+
+        /*
+         * Linear velocity below this magnitude is treated as
+         * "in-place rotation" for the purpose of the floor above.
+         * Above this, it's a normal arcing turn and the floor does
+         * not apply (a floor there would distort the path).
+         */
+        declare_parameter<double>(
+            "inplace_linear_velocity_threshold",
+            0.02
+        );
+
         calibration_sample_target_ =
             static_cast<std::size_t>(
                 get_parameter(
@@ -109,6 +133,16 @@ public:
                 "stationary_yaw_stddev_threshold"
             ).as_double();
 
+        min_inplace_angular_velocity_ =
+            get_parameter(
+                "min_inplace_angular_velocity"
+            ).as_double();
+
+        inplace_linear_velocity_threshold_ =
+            get_parameter(
+                "inplace_linear_velocity_threshold"
+            ).as_double();
+
         if (calibration_sample_target_ == 0) {
             throw std::runtime_error(
                 "imu_calibration_samples must be greater than zero"
@@ -138,6 +172,18 @@ public:
         {
             throw std::runtime_error(
                 "Stationary IMU thresholds must be non-negative"
+            );
+        }
+
+        if (min_inplace_angular_velocity_ < 0.0) {
+            throw std::runtime_error(
+                "min_inplace_angular_velocity must be non-negative"
+            );
+        }
+
+        if (inplace_linear_velocity_threshold_ < 0.0) {
+            throw std::runtime_error(
+                "inplace_linear_velocity_threshold must be non-negative"
             );
         }
 
@@ -898,12 +944,42 @@ private:
             return;
         }
 
-        last_commanded_velocity_ = message->linear.x;
-        last_commanded_yaw_rate_ = message->angular.z;
+        double forward_velocity = message->linear.x;
+        double yaw_rate = message->angular.z;
+
+        /*
+         * In-place rotation deadband floor.
+         *
+         * Below min_inplace_angular_velocity_, PWM duty cycle is too
+         * low to reliably overcome motor stiction, causing jerky
+         * stick-slip rotation instead of a smooth turn. When the
+         * rover is essentially not translating (|v| under the
+         * threshold) and a nonzero rotation is requested below the
+         * floor, bump |omega| up to the floor while preserving sign.
+         *
+         * This intentionally does NOT apply when forward_velocity is
+         * meaningfully nonzero (a normal arcing turn) since forcing a
+         * higher omega there would distort the actual path curvature.
+         */
+        if (
+            std::abs(forward_velocity) <
+                inplace_linear_velocity_threshold_ &&
+            yaw_rate != 0.0 &&
+            std::abs(yaw_rate) < min_inplace_angular_velocity_
+        )
+        {
+            yaw_rate = std::copysign(
+                min_inplace_angular_velocity_,
+                yaw_rate
+            );
+        }
+
+        last_commanded_velocity_ = forward_velocity;
+        last_commanded_yaw_rate_ = yaw_rate;
 
         send_velocity_command(
-            message->linear.x,
-            message->angular.z
+            forward_velocity,
+            yaw_rate
         );
     }
 
@@ -1151,6 +1227,10 @@ private:
     double continuous_calibration_alpha_ = 0.02;
     double stationary_yaw_rate_threshold_ = 0.001;
     double stationary_yaw_stddev_threshold_ = 0.001;
+
+    /* In-place rotation deadband floor settings. */
+    double min_inplace_angular_velocity_ = 0.24;
+    double inplace_linear_velocity_threshold_ = 0.02;
 
     // Rolling windows and running sums used for the variation check.
     std::deque<double> gx_window_;
