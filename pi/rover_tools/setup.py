@@ -25,7 +25,8 @@ setup(
     entry_points={
         "console_scripts": [
             "keyboard_teleop = rover_tools.keyboard_teleop_node:main",
-            "ekf_monitor = rover_tools.ekf_monitor_node:main",
+            "ekf_monitor = rover_tools.ekf_monitor_node:main",'odom_path_publisher = rover_tools.odom_path_publisher:main',
+            "rover_stack_manager = rover_tools.rover_stack_manager_node:main",
         ],
     },
 )
