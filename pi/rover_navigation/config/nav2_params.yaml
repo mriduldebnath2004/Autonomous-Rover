@@ -139,6 +139,9 @@ global_costmap:
     ros__parameters:
       use_sim_time: false
 
+      lethal_cost_threshold: 50
+      trinary_costmap: true
+
       global_frame: map
       robot_base_frame: base_link
 

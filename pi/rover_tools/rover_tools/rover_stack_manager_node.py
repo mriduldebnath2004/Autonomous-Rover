@@ -16,6 +16,7 @@ from rclpy.qos import (
 )
 
 from std_srvs.srv import Trigger
+from std_msgs.msg import String
 
 from sensor_msgs.msg import Imu
 from sensor_msgs.msg import LaserScan
@@ -29,6 +30,42 @@ class RoverStackManager(Node):
         super().__init__("rover_stack_manager")
 
         self.callback_group = ReentrantCallbackGroup()
+
+        # =====================================================
+        # SYSTEM STATUS
+        # =====================================================
+        # Published as JSON on /rover/system_status.
+        # TRANSIENT_LOCAL lets a UI connecting later receive the
+        # latest state, and the 1 Hz timer acts as a heartbeat.
+        self.component_status = {
+            "serial": "WAITING",
+            "odom": "WAITING",
+            "ekf": "WAITING",
+            "lidar": "WAITING",
+            "slam": "WAITING",
+            "nav2": "WAITING",
+        }
+        self.overall_status = "STARTING"
+        self.current_operation = "STARTUP"
+
+        status_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+
+        self.status_pub = self.create_publisher(
+            String,
+            "/rover/system_status",
+            status_qos,
+        )
+
+        self.status_timer = self.create_timer(
+            1.0,
+            self.publish_status,
+            callback_group=self.callback_group,
+        )
 
         # Prevent reset/start/shutdown operations from
         # happening simultaneously.
@@ -185,6 +222,39 @@ class RoverStackManager(Node):
 
     def global_costmap_callback(self, msg):
         self.last_global_costmap_time = time.monotonic()
+
+    # =========================================================
+    # SYSTEM STATUS HELPERS
+    # =========================================================
+
+    def publish_status(self):
+        import json
+
+        msg = String()
+        msg.data = json.dumps(
+            {
+                "overall": self.overall_status,
+                "operation": self.current_operation,
+                "serial": self.component_status["serial"],
+                "odom": self.component_status["odom"],
+                "ekf": self.component_status["ekf"],
+                "lidar": self.component_status["lidar"],
+                "slam": self.component_status["slam"],
+                "nav2": self.component_status["nav2"],
+            },
+            separators=(",", ":"),
+        )
+        self.status_pub.publish(msg)
+
+    def set_component_status(self, component, status):
+        self.component_status[component] = status
+        self.publish_status()
+
+    def set_overall_status(self, overall, operation=None):
+        self.overall_status = overall
+        if operation is not None:
+            self.current_operation = operation
+        self.publish_status()
 
     # =========================================================
     # WAIT FOR FRESH DATA
@@ -363,6 +433,7 @@ class RoverStackManager(Node):
 
     def start_serial(self):
 
+        self.set_component_status("serial", "STARTING")
         start_time = time.monotonic()
 
         self.serial_process = self.start_command(
@@ -381,20 +452,24 @@ class RoverStackManager(Node):
             "/imu/data_raw",
             timeout=10.0,
         ):
-
+            self.set_component_status("serial", "ERROR")
             raise RuntimeError(
                 "Serial node started but "
                 "/imu/data_raw did not appear"
             )
 
+        self.set_component_status("serial", "ONLINE")
+
     def stop_serial(self):
 
+        self.set_component_status("serial", "STOPPING")
         self.serial_process = self.stop_process(
             self.serial_process,
             "Serial node",
         )
 
         self.last_imu_time = 0.0
+        self.set_component_status("serial", "OFFLINE")
 
     # =========================================================
     # 2. ROVER ODOM
@@ -402,6 +477,7 @@ class RoverStackManager(Node):
 
     def start_odom(self):
 
+        self.set_component_status("odom", "STARTING")
         start_time = time.monotonic()
 
         self.odom_process = self.start_command(
@@ -420,20 +496,24 @@ class RoverStackManager(Node):
             "/wheel/odometry",
             timeout=8.0,
         ):
-
+            self.set_component_status("odom", "ERROR")
             raise RuntimeError(
                 "Rover odom started but "
                 "/wheel/odometry did not appear"
             )
 
+        self.set_component_status("odom", "ONLINE")
+
     def stop_odom(self):
 
+        self.set_component_status("odom", "STOPPING")
         self.odom_process = self.stop_process(
             self.odom_process,
             "Rover odom",
         )
 
         self.last_wheel_odom_time = 0.0
+        self.set_component_status("odom", "OFFLINE")
 
     # =========================================================
     # 3. EKF / LOCALIZATION
@@ -441,6 +521,7 @@ class RoverStackManager(Node):
 
     def start_localization(self):
 
+        self.set_component_status("ekf", "STARTING")
         start_time = time.monotonic()
 
         self.localization_process = self.start_command(
@@ -459,20 +540,24 @@ class RoverStackManager(Node):
             "/odometry/filtered",
             timeout=8.0,
         ):
-
+            self.set_component_status("ekf", "ERROR")
             raise RuntimeError(
                 "EKF started but "
                 "/odometry/filtered did not appear"
             )
 
+        self.set_component_status("ekf", "ONLINE")
+
     def stop_localization(self):
 
+        self.set_component_status("ekf", "STOPPING")
         self.localization_process = self.stop_process(
             self.localization_process,
             "EKF / localization",
         )
 
         self.last_filtered_odom_time = 0.0
+        self.set_component_status("ekf", "OFFLINE")
 
     # =========================================================
     # 4. LIDAR
@@ -480,6 +565,7 @@ class RoverStackManager(Node):
 
     def start_lidar(self):
 
+        self.set_component_status("lidar", "STARTING")
         start_time = time.monotonic()
 
         self.lidar_process = self.start_command(
@@ -498,20 +584,24 @@ class RoverStackManager(Node):
             "/scan",
             timeout=12.0,
         ):
-
+            self.set_component_status("lidar", "ERROR")
             raise RuntimeError(
                 "LiDAR driver started but "
                 "/scan did not appear"
             )
 
+        self.set_component_status("lidar", "ONLINE")
+
     def stop_lidar(self):
 
+        self.set_component_status("lidar", "STOPPING")
         self.lidar_process = self.stop_process(
             self.lidar_process,
             "LiDAR driver",
         )
 
         self.last_scan_time = 0.0
+        self.set_component_status("lidar", "OFFLINE")
 
     # =========================================================
     # 5. CARTOGRAPHER
@@ -519,6 +609,7 @@ class RoverStackManager(Node):
 
     def start_slam(self):
 
+        self.set_component_status("slam", "STARTING")
         start_time = time.monotonic()
 
         self.slam_process = self.start_command(
@@ -537,20 +628,24 @@ class RoverStackManager(Node):
             "/map",
             timeout=15.0,
         ):
-
+            self.set_component_status("slam", "ERROR")
             raise RuntimeError(
                 "Cartographer started but "
                 "/map did not appear"
             )
 
+        self.set_component_status("slam", "ONLINE")
+
     def stop_slam(self):
 
+        self.set_component_status("slam", "STOPPING")
         self.slam_process = self.stop_process(
             self.slam_process,
             "Cartographer",
         )
 
         self.last_map_time = 0.0
+        self.set_component_status("slam", "OFFLINE")
 
     # =========================================================
     # 6. NAV2
@@ -558,6 +653,7 @@ class RoverStackManager(Node):
 
     def start_nav(self):
 
+        self.set_component_status("nav2", "STARTING")
         start_time = time.monotonic()
 
         self.nav_process = self.start_command(
@@ -576,20 +672,24 @@ class RoverStackManager(Node):
             "/global_costmap/costmap",
             timeout=20.0,
         ):
-
+            self.set_component_status("nav2", "ERROR")
             raise RuntimeError(
                 "Nav2 started but "
                 "/global_costmap/costmap did not appear"
             )
 
+        self.set_component_status("nav2", "ONLINE")
+
     def stop_nav(self):
 
+        self.set_component_status("nav2", "STOPPING")
         self.nav_process = self.stop_process(
             self.nav_process,
             "Nav2",
         )
 
         self.last_global_costmap_time = 0.0
+        self.set_component_status("nav2", "OFFLINE")
 
     # =========================================================
     # START ENTIRE STACK
@@ -608,6 +708,8 @@ class RoverStackManager(Node):
     # =========================================================
 
     def start_full_stack(self):
+
+        self.set_overall_status("STARTING", "STARTUP")
 
         self.get_logger().info(
             "======================================"
@@ -655,6 +757,8 @@ class RoverStackManager(Node):
             "======================================"
         )
 
+        self.set_overall_status("READY", "IDLE")
+
         self.get_logger().info(
             "FULL ROVER STACK READY"
         )
@@ -682,6 +786,8 @@ class RoverStackManager(Node):
             self.start_full_stack()
 
         except Exception as exc:
+
+            self.set_overall_status("ERROR", "STARTUP_FAILED")
 
             self.get_logger().error(
                 f"STACK STARTUP FAILED: {exc}"
@@ -733,6 +839,8 @@ class RoverStackManager(Node):
             return response
 
         try:
+
+            self.set_overall_status("RESETTING", "RESET")
 
             self.get_logger().warn(
                 "======================================"
@@ -818,6 +926,8 @@ class RoverStackManager(Node):
             )
             self.start_nav()
 
+            self.set_overall_status("READY", "IDLE")
+
             response.success = True
 
             response.message = (
@@ -838,6 +948,8 @@ class RoverStackManager(Node):
             )
 
         except Exception as exc:
+
+            self.set_overall_status("ERROR", "RESET_FAILED")
 
             response.success = False
 
@@ -861,6 +973,8 @@ class RoverStackManager(Node):
 
     def shutdown(self):
 
+        self.set_overall_status("SHUTTING_DOWN", "SHUTDOWN")
+
         self.get_logger().info(
             "Shutting down rover stack..."
         )
@@ -874,6 +988,8 @@ class RoverStackManager(Node):
             self.stop_localization()
             self.stop_odom()
             self.stop_serial()
+
+        self.set_overall_status("OFFLINE", "SHUTDOWN")
 
         self.get_logger().info(
             "Rover stack shutdown complete"
