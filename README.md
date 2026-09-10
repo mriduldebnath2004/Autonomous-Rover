@@ -314,7 +314,7 @@ The demo covers:
 5. Nav2 path planning and obstacle avoidance
 6. Final autonomous navigation
 
-For detailed design decisions, tuning procedures, and experimental results, see the **[Engineering Documentation](DOCUMENTATION_LINK)**.
+For detailed design decisions, tuning procedures, and experimental results, see the [📄 View Full Technical Documentation](docs/technical_documentation.pdf).
 
 ---
 
