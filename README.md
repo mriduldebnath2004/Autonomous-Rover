@@ -37,6 +37,7 @@ The Raspberry Pi 4 handles localization, SLAM, path planning, and navigation, wh
 
 ![System Architecture](docs/images/block_diagram_overall.jpg)
 
+<img src="docs/images/robot_control_architecture.jpg" alt="System Architecture" width="600">
 ---
 
 ## Hardware
