@@ -8,7 +8,9 @@ The rover uses a **Raspberry Pi 4 running ROS 2 Jazzy** for high-level autonomy 
 > **Detailed Engineering Documentation:** [📄 View Full Technical Documentation](docs/technical_documentation.pdf)
 
 ![Autonomous Rover](docs/images/rover_final.jpg)
-<img src="docs/images/autonomous_navigation.gif" alt="Obstacle Avoidance" width="1100">
+
+<img src="docs/images/autonomous_navigation.gif" alt="Autonomous Navigation" width="1100">
+
 ---
 
 ## Features
@@ -22,8 +24,8 @@ The rover uses a **Raspberry Pi 4 running ROS 2 Jazzy** for high-level autonomy 
 - Custom Raspberry Pi Pico firmware for real-time motor control
 - ROS 2 communication architecture across the full autonomy stack
 - Automatic rover-stack startup and recovery
-- Wireless (WiFi) operator control — start mapping, send waypoints, and stop the rover remotely
-- Lightweight operator interface for visualization and waypoint control
+- Wireless (WiFi) operator control for mapping, waypoint selection, and emergency stop
+- Custom PyQt6 interface for visualization and rover control
 
 ---
 
@@ -31,15 +33,9 @@ The rover uses a **Raspberry Pi 4 running ROS 2 Jazzy** for high-level autonomy 
 
 The system separates **high-level autonomy** from **real-time control**.
 
-The Raspberry Pi 4 handles localization, SLAM, path planning, and navigation, while the Raspberry Pi Pico handles time-sensitive motor control, encoder acquisition, and IMU communication.
+The Raspberry Pi 4 handles localization, SLAM, path planning, and navigation, while the Raspberry Pi Pico handles time-sensitive motor control, encoder acquisition, and IMU communication. This allows the Pico to maintain deterministic low-level control independently of the computational load from SLAM and navigation.
 
 ![System Architecture](docs/images/block_diagram_overall.jpg)
-
-
-<img src="docs/images/robot_control_architecture.jpg" alt="System Architecture" width="600">
-
-
-This split allows the Pico to maintain deterministic low-level control independently of the computational load from SLAM and navigation.
 
 ---
 
@@ -47,7 +43,7 @@ This split allows the Pico to maintain deterministic low-level control independe
 
 | Component | Purpose |
 |---|---|
-| Raspberry Pi 4 | ROS 2, localization, SLAM and navigation |
+| Raspberry Pi 4 | ROS 2, localization, SLAM, and navigation |
 | Raspberry Pi Pico | Real-time motor control and sensor interface |
 | RPLIDAR A1 | 360° 2D environment scanning |
 | MPU6050 | Gyroscope and accelerometer measurements |
@@ -61,6 +57,7 @@ This split allows the Pico to maintain deterministic low-level control independe
 The chassis uses a layered layout to separate power distribution, compute/control electronics, and sensing hardware while maintaining a low center of gravity.
 
 ![CAD Assembly](docs/images/cad_assembly.jpg)
+
 ![FEA Analysis](docs/images/fea.jpeg)
 
 ---
@@ -83,7 +80,10 @@ The rover runs **Ubuntu 24.04 and ROS 2 Jazzy** on the Raspberry Pi 4.
 | Operator Interface | PyQt6 + ROS 2 |
 
 ### ROS 2 Data Flow
+
 <img src="docs/images/robot_ros2_dataflow.png" alt="ROS 2 Data Flow" width="600">
+
+---
 
 ## Motion Control
 
@@ -104,39 +104,13 @@ Testing at a 0.4 m/s step input produced:
 
 ### Yaw Control
 
-A second control loop uses the MPU6050 gyroscope to correct drivetrain asymmetry and improve heading-rate tracking.
-
-The final control architecture therefore combines:
-
-```text
-Linear Velocity Command
-        ↓
-Wheel Velocity PID
-        ↓
-Motor PWM
-
-Angular Velocity Command
-        ↓
-Gyroscope Feedback
-        ↓
-Yaw-Rate PID
-        ↓
-Differential Wheel Correction
-```
+A second control loop uses the MPU6050 gyroscope to correct drivetrain asymmetry and improve heading-rate tracking. The resulting low-level controller combines encoder-based wheel velocity PID with gyroscope-based yaw-rate feedback before generating differential motor commands.
 
 ---
 
 ## Localization
 
-Wheel encoder measurements provide translational odometry while the MPU6050 gyroscope provides angular velocity.
-
-These measurements are fused using the ROS 2 `robot_localization` Extended Kalman Filter.
-
-```text
-Wheel Encoders ─► Wheel Odometry ─┐
-                                  ├──► EKF ─► odom → base_link
-IMU Gyroscope ────────────────────┘
-```
+Wheel encoder measurements provide translational odometry while the MPU6050 gyroscope provides angular velocity. These measurements are fused using the ROS 2 `robot_localization` Extended Kalman Filter.
 
 The EKF was validated over **30 final trials** using RMSE and Normalized Estimation Error Squared (NEES).
 
@@ -172,6 +146,7 @@ map
 The resulting occupancy grid is used directly by Nav2 for autonomous navigation.
 
 <img src="docs/images/slam_mapping.gif" alt="SLAM Mapping" width="1100">
+
 ---
 
 ## Autonomous Navigation
@@ -189,23 +164,7 @@ The navigation stack uses:
 
 A target pose can be selected on the map, after which Nav2 plans and executes the route while continuously responding to nearby obstacles.
 
-```text
-Navigation Goal
-      ↓
-Global Planner
-      ↓
-Global Path
-      ↓
-Regulated Pure Pursuit
-      ↓
-Local Costmap / Collision Monitoring
-      ↓
-Velocity Command
-      ↓
-Pico Motor Controller
-```
-
-Across 40 autonomous waypoint trials spanning open space, multi-turn routes, narrow passages, and obstacle avoidance, the rover reached its goal **85% of the time**, with an average pose error of 7.0 cm and heading error of 3.5°.
+Across 40 autonomous waypoint trials spanning open space, multi-turn routes, narrow passages, and obstacle avoidance, the rover reached its goal **85% of the time**, with an average pose error of **7.0 cm** and heading error of **3.5°**.
 
 <img src="docs/images/nav2_demo.gif" alt="Autonomous Navigation" width="1100">
 
@@ -225,25 +184,11 @@ The interface is primarily an operator layer over the ROS 2 system; the autonomy
 
 ## System Integration
 
-The rover's runtime stack is managed automatically in the following startup sequence:
+The complete ROS 2 stack is automatically launched at boot in dependency order:
 
-```text
-Serial Interface
-      ↓
-Wheel Odometry
-      ↓
-EKF Localization
-      ↓
-LiDAR
-      ↓
-Cartographer
-      ↓
-Nav2
-```
+**Serial Interface → Wheel Odometry → EKF Localization → LiDAR → Cartographer → Nav2**
 
-The complete stack can be launched automatically at boot, allowing the rover to operate without manually starting each ROS 2 component.
-
-A stack manager also monitors subsystem state and supports restarting the autonomy stack from the operator interface.
+A custom stack manager monitors subsystem state and allows the autonomy stack to be restarted directly from the operator interface.
 
 ---
 
@@ -253,49 +198,23 @@ A stack manager also monitors subsystem state and supports restarting the autono
 Autonomous-Rover/
 │
 ├── pico/
-│   └── ...                 # Pico firmware and motor control
+│   └── ...                  # Pico firmware and motor control
 │
 ├── pi/
-│   ├── serial/             # Pi ↔ Pico ROS interface
-│   ├── odom/               # Wheel odometry
-│   ├── rover_localization/ # EKF configuration
-│   ├── rover_slam/         # Cartographer configuration
-│   ├── rover_navigation/   # Nav2 configuration
-│   └── rover_tools/        # Rover utilities for testing/documentation
+│   ├── serial/              # Pi ↔ Pico ROS interface
+│   ├── odom/                # Wheel odometry
+│   ├── rover_localization/  # EKF configuration
+│   ├── rover_slam/          # Cartographer configuration
+│   ├── rover_navigation/    # Nav2 configuration
+│   └── rover_tools/         # Rover utilities for testing/documentation
 │
-│
-├── rover_ui/               # Wireless Rover Control UI
+├── rover_ui/                # Wireless rover control UI
 │
 ├── docs/
 │   └── images/
 │
 └── README.md
 ```
-
----
-
-## Results
-
-
-
-The completed rover demonstrates the full autonomous robotics pipeline:
-
-**Sensing → State Estimation → Mapping → Planning → Control**
-
-Key validated results include:
-
-- Stable closed-loop wheel velocity control at up to ~0.4 m/s operating speeds
-- 0.54 s wheel-velocity settling time at a 0.4 m/s step input
-- 5.60 cm EKF position RMSE across final validation trials
-- 2.47° EKF yaw RMSE
-- 2.326 average NEES across 30 trials
-- Real-time LiDAR SLAM of indoor environments
-- Autonomous waypoint planning and path following
-- Live obstacle-aware navigation using Nav2
-- 85% autonomous navigation success rate across 40 trials (7.0 cm avg. pose error, 3.5° avg. heading error)
-- ~2 hours of continuous runtime per charge, well past the original 20–30 minute target
-
-The final system runs the complete autonomy stack onboard the Raspberry Pi 4.
 
 ---
 
@@ -314,17 +233,15 @@ The demo covers:
 5. Nav2 path planning and obstacle avoidance
 6. Final autonomous navigation
 
-For detailed design decisions, tuning procedures, and experimental results, see the [📄 View Full Technical Documentation](docs/technical_documentation.pdf).
+For detailed design decisions, tuning procedures, and experimental results, see the [📄 Full Technical Documentation](docs/technical_documentation.pdf).
 
 ---
 
 ## Future Work
 
-- Reduce Pi 4 CPU load (currently ~70%) by tuning scan-matching resolution, costmap update rates, and pose-graph optimization interval
-- Add a dynamic obstacle tracker, since LiDAR returns are currently treated as static
-- Test multi-floor and larger-map environments to evaluate Cartographer's memory/CPU scaling
-- Further reduce residual wheel-slip error feeding into the EKF
-- Integrate battery health monitoring into the system status UI
+- Optimize Raspberry Pi 4 compute utilization
+- Add dynamic-obstacle tracking
+- Validate navigation and SLAM in larger and more complex environments
 
 ---
 

@@ -1,5 +1,17 @@
 # Build outputs
 build/
+install/
+log/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python packaging
+*.egg-info/
+.eggs/
+dist/
 
 # Pico binaries
 *.uf2
@@ -8,14 +20,19 @@ build/
 *.hex
 *.map
 
-# VS Code
-.vscode/
-
-# Temporary files
+# Compiled / temporary files
 *.o
 *.obj
 *.log
 
-# Windows
+# VS Code
+.vscode/
+
+# Python virtual environments
+.venv/
+venv/
+
+# OS files
 Thumbs.db
 Desktop.ini
+.DS_Store
