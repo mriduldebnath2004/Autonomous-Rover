@@ -4,7 +4,7 @@ A fully autonomous indoor mobile robot designed and built for real-time **SLAM, 
 
 The rover uses a **Raspberry Pi 4 running ROS 2 Jazzy** for high-level autonomy and a **Raspberry Pi Pico** for real-time motor control, encoder acquisition, and IMU interfacing. A 2D LiDAR, wheel encoders, and IMU provide the sensing required for localization and navigation.
 
-> **Demo Video:** [YouTube link]  
+> **Demo Video:** [in prog]  
 > **Detailed Engineering Documentation:** [📄 View Full Technical Documentation](docs/technical_documentation.pdf)
 
 ![Autonomous Rover](docs/images/rover_final.jpg)
@@ -223,7 +223,7 @@ Autonomous-Rover/
 
 ### Full Project Demo
 
-[![Autonomous Rover Demo](docs/images/demo_thumbnail.jpg)](YOUTUBE_LINK)
+[![Autonomous Rover Demo](docs/images/demo_thumbnail.jpg)](in prog)
 
 The demo covers:
 
