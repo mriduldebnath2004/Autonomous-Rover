@@ -47,7 +47,7 @@ The Raspberry Pi 4 handles localization, SLAM, path planning, and navigation, wh
 | Raspberry Pi 4 | ROS 2, localization, SLAM, and navigation |
 | Raspberry Pi Pico | Real-time motor control and sensor interface |
 | RPLIDAR A1 | 360° 2D environment scanning |
-| MPU6050 | Gyroscope and accelerometer measurements |
+| MPU6050 | Gyroscope and accelerometer measurements (I2C) |
 | 4× 12 V DC gear motors | Differential-drive locomotion |
 | Quadrature encoders | Wheel velocity and odometry |
 | 2× Cytron MD10C | Bidirectional motor control |
@@ -55,7 +55,9 @@ The Raspberry Pi 4 handles localization, SLAM, path planning, and navigation, wh
 | 5 V buck converter | Regulated compute power |
 | Custom 3D-printed chassis | Mechanical structure and component mounting |
 
-The chassis uses a layered layout to separate power distribution, compute/control electronics, and sensing hardware while maintaining a low center of gravity.
+The chassis was designed in **SolidWorks**, validated with **FEA** for structural loading, and manufactured via **3D printing**. It uses a layered layout to separate power distribution, compute/control electronics, and sensing hardware while maintaining a low center of gravity.
+
+All wiring, soldering (e.g. onto the buck converter), and crimping of connectors were done by hand to integrate the electronics and power system.
 
 ![CAD Assembly](docs/images/cad_assembly.jpg)
 
@@ -79,6 +81,7 @@ The rover runs **Ubuntu 24.04 and ROS 2 Jazzy** on the Raspberry Pi 4.
 | Path Following | Nav2 Regulated Pure Pursuit |
 | Obstacle Avoidance | Nav2 local costmap + collision monitoring |
 | Operator Interface | PyQt6 + ROS 2 |
+| Visualization / Debugging | RViz (SLAM and Nav2 stack testing) |
 
 ### ROS 2 Data Flow
 
@@ -248,7 +251,7 @@ For detailed design decisions, tuning procedures, and experimental results, see 
 
 ## Technologies
 
-`ROS 2 Jazzy` · `C++` · `C` · `Python` · `Raspberry Pi` · `RP2040` · `Nav2` · `Google Cartographer` · `robot_localization` · `LiDAR` · `UART` · `PID Control` · `EKF` · `SLAM` · `TF2` · `PyQt6`
+`ROS 2 Jazzy` · `C++` · `C` · `Python` · `Raspberry Pi` · `RP2040` · `Nav2` · `Google Cartographer` · `robot_localization` · `LiDAR` · `UART` · `I2C` · `PID Control` · `EKF` · `SLAM` · `TF2` · `RViz` · `PyQt6`
 
 ---
 
