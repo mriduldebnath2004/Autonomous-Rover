@@ -50,7 +50,7 @@ The Raspberry Pi 4 handles localization, SLAM, path planning, and navigation, wh
 | MPU6050 | Gyroscope and accelerometer measurements (I2C) |
 | 4× 12 V DC gear motors | Differential-drive locomotion |
 | Quadrature encoders | Wheel velocity and odometry |
-| 2× Cytron MD10C | Bidirectional motor control |
+| Cytron MD10C | Bidirectional motor control |
 | 3S 11.1 V 5200 mAh LiPo | Main system power |
 | 5 V buck converter | Regulated compute power |
 | Custom 3D-printed chassis | Mechanical structure and component mounting |
